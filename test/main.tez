@@ -1,0 +1,4 @@
+ignore These are comments.....
+make text 2234
+print text
+if text is 1
