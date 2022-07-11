@@ -3,3 +3,5 @@ tooez
 CmakeCache.txt
 cmake_install.cmake
 Makefile
+CmakeFiles
+.vscode
