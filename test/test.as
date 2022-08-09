@@ -1,0 +1,4 @@
+PRINT Hello World
+PRINT EZ
+ADD 1 1
+MEMSET SUM L3
