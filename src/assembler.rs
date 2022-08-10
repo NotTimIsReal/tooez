@@ -19,7 +19,6 @@ pub enum Instructions {
     PRINT,
     HALT,
     MEMSET,
-    MEMGET,
     MEMDEL,
     NULL,
 }
@@ -89,7 +88,6 @@ impl Assembler {
                 "PRINT" => self.instructions.push(Instructions::PRINT),
                 "MEMSET" => self.instructions.push(Instructions::MEMSET),
                 "MEMDEL" => self.instructions.push(Instructions::MEMDEL),
-                "MEMGET" => self.instructions.push(Instructions::MEMGET),
                 "HALT" => self.instructions.push(Instructions::HALT),
                 _ => {
                     if instruction.starts_with(":") {
@@ -130,8 +128,7 @@ impl Assembler {
                 Instructions::PRINT => f.write(&[0x10]).unwrap(),
                 Instructions::HALT => f.write(&[0x11]).unwrap(),
                 Instructions::MEMSET => f.write(&[0x12]).unwrap(),
-                Instructions::MEMGET => f.write(&[0x13]).unwrap(),
-                Instructions::MEMDEL => f.write(&[0x14]).unwrap(),
+                Instructions::MEMDEL => f.write(&[0x13]).unwrap(),
                 Instructions::NULL => f.write(&[0x00]).unwrap(),
             };
             let label = &self.labels[i];
@@ -164,8 +161,7 @@ pub fn find_instruction(instruction: u8) -> Instructions {
         0x10 => Instructions::PRINT,
         0x11 => Instructions::HALT,
         0x12 => Instructions::MEMSET,
-        0x13 => Instructions::MEMGET,
-        0x14 => Instructions::MEMDEL,
+        0x13 => Instructions::MEMDEL,
         0x00 => Instructions::NULL,
         _ => Instructions::NULL,
     }
