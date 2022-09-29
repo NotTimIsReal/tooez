@@ -1,241 +1,385 @@
-use crate::assembler::{self, Instructions};
-use std::{fs, process::exit};
-#[derive(Debug, Clone)]
-enum Types {
-    String,
-    Number,
-    Boolean,
-}
-#[derive(Debug, Clone)]
-struct InstructionMapping {
-    instruction_index: usize,
-    instuction: assembler::Instructions,
-    values: Vec<u8>,
-}
-//construct a simple vm that consists of ram and a register
-#[derive(Debug, Clone)]
+use crate::instructions::Opcode;
 pub struct VM {
-    memory: Vec<Variable>,
-    reg: Vec<i32>,
-    pc: usize,
-    sp: usize,
-    instrction_maps: Vec<InstructionMapping>,
-    _binary: Vec<Instructions>,
-    output: Vec<Vec<u8>>,
+    pub registers: [i32; 32],
+    pub pc: usize,
+    pub program: Vec<u8>,
+    pub remainder: u32,
 }
-#[derive(Debug, Clone)]
-struct Variable {
-    name: u8,
-    value: Vec<u8>,
-    type_of: Types,
+impl Default for VM {
+    fn default() -> Self {
+        Self::new()
+    }
 }
+
 impl VM {
     pub fn new() -> VM {
         VM {
-            memory: Vec::new(),
-            reg: Vec::new(),
+            registers: [0; 32],
             pc: 0,
-            sp: 0,
-            _binary: Vec::new(),
-            instrction_maps: Vec::new(),
-            output: Vec::new(),
+            program: vec![],
+            remainder: 0,
         }
     }
-    pub fn load(&mut self, filename: &str) {
-        let file = fs::read_to_string(filename).unwrap();
-        let content = file.as_bytes();
-        for c in content {
-            let instr = &assembler::find_instruction(*c);
-            if *instr == Instructions::NULL {
-                //get the last instruction
-                let last_instruction = self.instrction_maps.last_mut().unwrap();
-                last_instruction.values.push(*c);
-            } else {
-                let instruction_map = InstructionMapping {
-                    instruction_index: self.instrction_maps.len(),
-                    instuction: *instr,
-                    values: Vec::new(),
-                };
-                self.instrction_maps.push(instruction_map);
-                self._binary.push(*instr);
-            }
-        }
-        //print the instructions and values
-        // for instruction_map in self.instrction_maps.iter() {
-        //     println!("{:?}", instruction_map.instuction);
-        //     //convert the values from byte to a char
-        //     let values: Vec<char> = instruction_map.values.iter().map(|x| *x as char).collect();
-        //     println!("{:?}", values.iter().collect::<String>());
-        // }
+    fn next_8_bits(&mut self) -> u8 {
+        let result = self.program[self.pc];
+        self.pc += 1;
+        result
     }
-    fn _find_variable(self, name: &str) -> Option<Variable> {
-        for variable in self.memory.iter() {
-            //convert name to u8
-            if variable.name == name.as_bytes()[0] {
-                return Some(variable.clone());
-            }
-        }
-        None
+
+    fn next_16_bits(&mut self) -> u16 {
+        let result = ((self.program[self.pc] as u16) << 8) | self.program[self.pc + 1] as u16;
+        self.pc += 2;
+        result
     }
-    pub fn run(mut self) {
-        for i in 0..self._binary.len() {
-            let exec = self._binary[self.pc];
-            match exec {
-                Instructions::PRINT => {
-                    let length = self.instrction_maps[i].values.len();
-                    if length < 1 {
-                        println!("\n");
-                        let new_line = vec![10]; //convert \n to u8
-
-                        self.output.push(new_line);
-
-                        continue;
-                    };
-                    let char_out: Vec<char> = self.instrction_maps[i]
-                        .values
-                        .iter()
-                        .map(|x| *x as char)
-                        .collect();
-
-                    let out = char_out.iter().collect::<String>();
-                    if out == "_" {
-                        //convert \n to bytes
-                        let new_line = vec![10];
-                        self.output.push(new_line);
-                        continue;
-                    };
-                    println!("{}", out);
-                    //convert out to u8 vector
-                    let out_bytes = out.as_bytes();
-                    self.output.push(out_bytes.to_vec());
-                }
-                Instructions::ADD => {
-                    //set length of reg
-                    for _ in 0..i + 1 {
-                        self.reg.push(0);
-                    }
-
-                    let length = self.instrction_maps[i].values.len();
-                    for j in 0..length {
-                        let value = self.instrction_maps[i].values[j];
-                        //convert value to number
-                        let number = value as i32;
-                        self.reg[i] += number;
-                    }
-                    self.reg[i] = 0;
-                    self.output
-                        .push(format!("{}", self.reg[i]).as_bytes().to_vec());
-                }
-                Instructions::MEMSET => {
-                    let length = self.instrction_maps[i].values.len();
-                    if length < 2 {
-                        println!(
-                            "FAILED RUNNING, EXPECTED AT LEAST 2 ARGUMENTS FOR MEMSET GOT {}",
-                            length
-                        );
-                        exit(1);
-                    }
-                    let map = &self.instrction_maps[i];
-                    let name = map.values[0];
-                    let mut values = map.values[1..].to_vec();
-                    //convert values to string
-                    let char_values: Vec<char> = values.iter().map(|x| *x as char).collect();
-
-                    let value = char_values.iter().collect::<String>();
-
-                    //split value by space
-                    let split_value: Vec<&str> = value.split(" ").collect();
-                    //convet Vec<&str> to Vec<str>
-                    let mut split_value_string: Vec<String> = Vec::new();
-                    for s in split_value {
-                        split_value_string.push(s.to_string());
-                    } //remove the first element
-                    split_value_string.remove(0);
-                    //check if split_value_string can split by _L
-                    for i in 0..split_value_string.len() {
-                        let refers_to_line = split_value_string[i].contains("_L");
-                        if refers_to_line {
-                            //get the index that _L is at
-                            let line = split_value_string[0].split("_L").collect::<Vec<&str>>()[1];
-                            if !line.parse::<i32>().is_ok() {
-                                println!(
-                                "FAILED RUNNING, EXPECTED INTEGER FOR MEMSET LINE REFERENCE GOT {}",
-                                line
-                            );
-                                exit(1);
-                            }
-                            let line = line.parse::<usize>().unwrap();
-                            let output = &self.output[line - 1];
-                            //convert output to Vec<char>
-                            let output_char: Vec<char> =
-                                output.iter().map(|x| *x as char).collect();
-                            //convert output_char to string
-                            let output_string = output_char.iter().collect::<String>();
-                            //split output_string by space
-                            let split_output_string: Vec<&str> = output_string.split(" ").collect();
-                            //convert split_output_string to Vec<str>
-                            let mut split_output_string_string: Vec<String> = Vec::new();
-                            for s in split_output_string {
-                                split_output_string_string.push(s.to_string());
-                            }
-                            split_value_string = split_output_string_string;
-
-                            break;
-                        }
-                        continue;
-                    }
-
-                    values = split_value_string
-                        .iter()
-                        .map(|x| x.bytes().next().unwrap())
-                        .collect();
-                    let variable = Variable {
-                        name,
-                        value: values,
-                        type_of: find_type(&split_value_string[0]),
-                    };
-                    self.memory.push(variable);
-                    self.output.push("".as_bytes().to_vec());
-                }
-                Instructions::MEMDEL => {
-                    let length = self.instrction_maps[i].values.len();
-                    if length < 1 {
-                        println!(
-                            "FAILED RUNNING, EXPECTED AT LEAST 1 ARGUMENTS FOR MEMDEL GOT {}",
-                            length
-                        );
-                        exit(1);
-                    }
-                    let name = self.instrction_maps[i].values[0];
-                    let mut found = false;
-                    for i in 0..self.memory.len() {
-                        if self.memory[i].name == name {
-                            found = true;
-                            self.memory.remove(i);
-                            break;
-                        }
-                    }
-                    if !found {
-                        println!("FAILED RUNNING, EXPECTED VARIABLE {} NOT FOUND", name);
-                        exit(1);
-                    }
-                    self.output.push("".as_bytes().to_vec());
-                }
-                _ => {
-                    println!("Invalid Instruction");
+    #[deny(clippy::never_loop)]
+    pub fn execute_instruction(&mut self) -> bool {
+        if self.pc >= self.program.len() {
+            return false;
+        }
+        match self.decode_opcode() {
+            Opcode::HLT => {
+                return false;
+            }
+            Opcode::ADD => {
+                let register1 = self.registers[self.next_8_bits() as usize];
+                let register2 = self.registers[self.next_8_bits() as usize];
+                self.registers[self.next_8_bits() as usize] = register1 + register2;
+            }
+            Opcode::SUB => {
+                let register1 = self.registers[self.next_8_bits() as usize];
+                let register2 = self.registers[self.next_8_bits() as usize];
+                self.registers[self.next_8_bits() as usize] = register1 - register2;
+            }
+            Opcode::LOAD => {
+                let register = self.next_8_bits() as usize; // We cast to usize so we can use it as an index into the array
+                let number = self.next_16_bits() as u16;
+                self.registers[register] = number as i32; // Our registers are i32s, so we need to cast it. We'll cover that later.
+            }
+            Opcode::MULT => {
+                let register1 = self.registers[self.next_8_bits() as usize];
+                let register2 = self.registers[self.next_8_bits() as usize];
+                self.registers[self.next_8_bits() as usize] = register1 * register2;
+            }
+            Opcode::DIV => {
+                let register1 = self.registers[self.next_8_bits() as usize];
+                let register2 = self.registers[self.next_8_bits() as usize];
+                self.registers[self.next_8_bits() as usize] = register1 / register2;
+                self.remainder = (register1 % register2) as u32;
+            }
+            Opcode::JMP => {
+                let register = self.registers[self.next_8_bits() as usize];
+                self.pc = register as usize;
+            }
+            Opcode::JMPF => {
+                let value = self.registers[self.next_8_bits() as usize];
+                self.pc += value as usize;
+            }
+            Opcode::JMPB => {
+                let register = self.registers[self.next_8_bits() as usize];
+                self.pc -= register as usize;
+            }
+            Opcode::EQ => {
+                let register1 = self.registers[self.next_8_bits() as usize];
+                let register2 = self.registers[self.next_8_bits() as usize];
+                let dest = self.next_8_bits() as usize;
+                if register1 == register2 {
+                    self.registers[dest] = 1;
+                } else {
+                    self.registers[dest] = 0;
                 }
             }
-
-            self.pc += 1;
+            Opcode::NEQ => {
+                let register1 = self.registers[self.next_8_bits() as usize];
+                let register2 = self.registers[self.next_8_bits() as usize];
+                let dest = self.next_8_bits() as usize;
+                if register1 != register2 {
+                    self.registers[dest] = 1;
+                } else {
+                    self.registers[dest] = 0;
+                }
+            }
+            Opcode::GT => {
+                let register1 = self.registers[self.next_8_bits() as usize];
+                let register2 = self.registers[self.next_8_bits() as usize];
+                let dest = self.next_8_bits() as usize;
+                if register1 > register2 {
+                    self.registers[dest] = 1;
+                } else {
+                    self.registers[dest] = 0;
+                }
+            }
+            Opcode::LT => {
+                let register1 = self.registers[self.next_8_bits() as usize];
+                let register2 = self.registers[self.next_8_bits() as usize];
+                let dest = self.next_8_bits() as usize;
+                if register1 < register2 {
+                    self.registers[dest] = 1;
+                } else {
+                    self.registers[dest] = 0;
+                }
+            }
+            Opcode::GTE => {
+                let register1 = self.registers[self.next_8_bits() as usize];
+                let register2 = self.registers[self.next_8_bits() as usize];
+                let dest = self.next_8_bits() as usize;
+                if register1 >= register2 {
+                    self.registers[dest] = 1;
+                } else {
+                    self.registers[dest] = 0;
+                }
+            }
+            Opcode::LTE => {
+                let register1 = self.registers[self.next_8_bits() as usize];
+                let register2 = self.registers[self.next_8_bits() as usize];
+                let dest = self.next_8_bits() as usize;
+                if register1 <= register2 {
+                    self.registers[dest] = 1;
+                } else {
+                    self.registers[dest] = 0;
+                }
+            }
+            Opcode::JEE => {
+                let register1 = self.registers[self.next_8_bits() as usize];
+                let register2 = self.registers[self.next_8_bits() as usize];
+                let dest = self.next_8_bits() as usize;
+                if register1 == register2 {
+                    self.pc = self.registers[dest] as usize;
+                }
+            }
+            _ => {
+                println!("Unrecognized opcode found! Terminating!");
+                return false;
+            }
         }
+        true
+    }
+    pub fn run(&mut self) {
+        let mut is_done = false;
+        while !is_done {
+            is_done = self.execute_instruction();
+        }
+    }
+    pub fn run_once(&mut self) {
+        self.execute_instruction();
+    }
+    fn decode_opcode(&mut self) -> Opcode {
+        let opcode = Opcode::from(self.program[self.pc]);
+        self.pc += 1;
+        opcode
     }
 }
-fn find_type(value: &str) -> Types {
-    if value.parse::<i32>().is_ok() {
-        return Types::Number;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_create_vm() {
+        let test_vm = VM::new();
+        assert_eq!(test_vm.registers[0], 0)
     }
-    if value == "true" || value == "false" {
-        return Types::Boolean;
+    #[test]
+    fn test_opcode_hlt() {
+        let mut test_vm = VM::new();
+        let test_bytes = vec![0, 0, 0, 0];
+        test_vm.program = test_bytes;
+        test_vm.run_once();
+        assert_eq!(test_vm.pc, 1);
     }
-    return Types::String;
+
+    #[test]
+    fn test_opcode_igl() {
+        let mut test_vm = VM::new();
+        let test_bytes = vec![200, 0, 0, 0];
+        test_vm.program = test_bytes;
+        test_vm.run_once();
+        assert_eq!(test_vm.pc, 1);
+    }
+    #[test]
+    fn test_load_opcode() {
+        let mut test_vm = VM::new();
+        //convert 500 to 2 bytes
+        let number = 500;
+        let byte1 = (number >> 8) as u8;
+        let byte2 = number as u8;
+        test_vm.program = vec![3, 0, byte1, byte2]; // Remember, this is how we represent 500 using two u8s in little endian format
+        test_vm.run();
+        assert_eq!(test_vm.registers[0], 500);
+    }
+    #[test]
+    fn test_opcode_add() {
+        let mut test_vm = VM::new();
+        test_vm.program = vec![1, 0, 1, 2];
+        test_vm.registers[0] = 10;
+        test_vm.registers[1] = 20;
+        test_vm.run();
+        assert_eq!(test_vm.registers[2], 30);
+    }
+    #[test]
+    fn test_opcode_sub() {
+        let mut test_vm = VM::new();
+        test_vm.program = vec![2, 0, 1, 2];
+        test_vm.registers[0] = 20;
+        test_vm.registers[1] = 10;
+        test_vm.run();
+        assert_eq!(test_vm.registers[2], 10);
+    }
+    #[test]
+    fn test_opcode_mult() {
+        let mut test_vm = VM::new();
+        test_vm.program = vec![4, 0, 1, 2];
+        test_vm.registers[0] = 20;
+        test_vm.registers[1] = 10;
+        test_vm.run();
+        assert_eq!(test_vm.registers[2], 200);
+    }
+    #[test]
+    fn test_opcode_div() {
+        let mut test_vm = VM::new();
+        test_vm.program = vec![5, 0, 1, 2];
+        test_vm.registers[0] = 20;
+        test_vm.registers[1] = 10;
+        test_vm.run();
+        assert_eq!(test_vm.registers[2], 2);
+        assert_eq!(test_vm.remainder, 0);
+    }
+    #[test]
+    fn test_opcode_jmp() {
+        let mut test_vm = VM::new();
+        test_vm.program = vec![6, 0, 0, 0];
+        test_vm.registers[0] = 2;
+        test_vm.run();
+        assert_eq!(test_vm.pc, 2);
+    }
+    #[test]
+    fn test_jmpf_opcode() {
+        let mut test_vm = VM::new();
+        test_vm.registers[1] = 2;
+        test_vm.program = vec![7, 1, 0, 0];
+        test_vm.run_once();
+        assert_eq!(test_vm.pc, 4);
+    }
+    #[test]
+    fn test_opcode_jmpb() {
+        let mut test_vm = VM::new();
+        test_vm.program = vec![8, 0, 0, 0];
+        test_vm.registers[0] = 2;
+        test_vm.run();
+        assert_eq!(test_vm.pc, 0);
+    }
+    #[test]
+    fn test_opcode_eq() {
+        let mut test_vm = VM::new();
+        test_vm.program = vec![9, 0, 1, 2, 9, 0, 1, 2];
+        test_vm.registers[0] = 10;
+        test_vm.registers[1] = 10;
+        test_vm.run_once();
+        assert_eq!(test_vm.registers[2], 1);
+        test_vm.registers[0] = 9;
+        test_vm.registers[1] = 10;
+        test_vm.run_once();
+        assert_eq!(test_vm.registers[2], 0);
+    }
+    #[test]
+    fn test_opcode_neq() {
+        let mut test_vm = VM::new();
+        test_vm.program = vec![10, 0, 1, 2, 10, 0, 1, 2];
+        test_vm.registers[0] = 10;
+        test_vm.registers[1] = 10;
+        test_vm.run_once();
+        assert_eq!(test_vm.registers[2], 0);
+        test_vm.registers[0] = 9;
+        test_vm.registers[1] = 10;
+        test_vm.run_once();
+        assert_eq!(test_vm.registers[2], 1);
+    }
+    #[test]
+    fn test_opcode_gt() {
+        let mut test_vm = VM::new();
+        test_vm.program = vec![11, 0, 1, 2, 11, 0, 1, 2, 11, 0, 1, 2];
+        test_vm.registers[0] = 10;
+        test_vm.registers[1] = 10;
+        test_vm.run_once();
+        assert_eq!(test_vm.registers[2], 0);
+        test_vm.registers[0] = 9;
+        test_vm.registers[1] = 10;
+        test_vm.run_once();
+        assert_eq!(test_vm.registers[2], 0);
+        test_vm.registers[0] = 11;
+        test_vm.registers[1] = 10;
+        test_vm.run_once();
+        assert_eq!(test_vm.registers[2], 1);
+    }
+    #[test]
+    fn test_opcode_lt() {
+        let mut test_vm = VM::new();
+        test_vm.program = vec![12, 0, 1, 2, 12, 0, 1, 2, 12, 0, 1, 2];
+        test_vm.registers[0] = 10;
+        test_vm.registers[1] = 10;
+        test_vm.run_once();
+        assert_eq!(test_vm.registers[2], 0);
+        test_vm.registers[0] = 9;
+        test_vm.registers[1] = 10;
+        test_vm.run_once();
+        assert_eq!(test_vm.registers[2], 1);
+        test_vm.registers[0] = 11;
+        test_vm.registers[1] = 10;
+        test_vm.run_once();
+        assert_eq!(test_vm.registers[2], 0);
+    }
+    #[test]
+    fn test_opcode_gte() {
+        let mut test_vm = VM::new();
+        test_vm.program = vec![13, 0, 1, 2, 13, 0, 1, 2, 13, 0, 1, 2];
+        test_vm.registers[0] = 10;
+        test_vm.registers[1] = 10;
+        test_vm.run_once();
+        assert_eq!(test_vm.registers[2], 1);
+        test_vm.registers[0] = 9;
+        test_vm.registers[1] = 10;
+        test_vm.run_once();
+        assert_eq!(test_vm.registers[2], 0);
+        test_vm.registers[0] = 11;
+        test_vm.registers[1] = 10;
+        test_vm.run_once();
+        assert_eq!(test_vm.registers[2], 1);
+    }
+    #[test]
+    fn test_opcode_lte() {
+        let mut test_vm = VM::new();
+        test_vm.program = vec![14, 0, 1, 2, 14, 0, 1, 2, 14, 0, 1, 2];
+        test_vm.registers[0] = 10;
+        test_vm.registers[1] = 10;
+        test_vm.run_once();
+        assert_eq!(test_vm.registers[2], 1);
+        test_vm.registers[0] = 9;
+        test_vm.registers[1] = 10;
+        test_vm.run_once();
+        assert_eq!(test_vm.registers[2], 1);
+        test_vm.registers[0] = 11;
+        test_vm.registers[1] = 10;
+        test_vm.run_once();
+        assert_eq!(test_vm.registers[2], 0);
+    }
+    #[test]
+    fn test_opcode_jee() {
+        let mut test_vm = VM::new();
+        test_vm.program = vec![15, 0, 1, 2, 15, 0, 1, 2, 15, 0, 1, 2];
+        test_vm.registers[0] = 10;
+        test_vm.registers[1] = 10;
+        test_vm.registers[2] = 6;
+        test_vm.run_once();
+        assert_eq!(test_vm.pc, 6);
+        test_vm.pc = 4;
+        test_vm.registers[0] = 9;
+        test_vm.registers[1] = 10;
+        test_vm.registers[2] = 4;
+        test_vm.run_once();
+        assert_eq!(test_vm.pc, 8);
+        test_vm.registers[0] = 11;
+        test_vm.registers[1] = 10;
+        test_vm.registers[2] = 4;
+        test_vm.run_once();
+        assert_eq!(test_vm.pc, 12);
+    }
 }

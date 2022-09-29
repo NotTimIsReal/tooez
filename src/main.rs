@@ -1,33 +1,39 @@
-mod assembler;
-mod vm;
+pub mod instructions;
+pub mod repl;
+pub mod vm;
+use repl::REPL;
 use std::env;
-use std::io::prelude::*;
-use vm::VM;
+use std::io;
+#[macro_use]
+extern crate nom;
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    if args.len() != 2 {
-        println!("Usage: {} <filename.tzo|.tasm|.tz>", args[0]);
-        println!("The Different Fix Extentions: ");
-        println!("tasm: Tooez Assembly Language ( Different Syntax To Traditional Assembly )");
-        println!("tzo: Tooez Output File ( The Executable That Contains The Program )");
-        println!("tz: Tooez Code File ( The Code For Developers )");
-        return;
+    //analysze args
+
+    if env::args().count() != 2 {
+        println!("Which REPL do you want to use?");
+        println!("1. VM");
+        println!("2. Assembler");
+        println!("3. Language");
+        //TODO: add more REPLs
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+        let input = input.trim();
+        //clear screen
+        print!("{}[2J", 27 as char);
+        match input {
+            "1" => {
+                let mut repl = REPL::new();
+                repl.run();
+            }
+            "2" => {
+                println!("Assembler REPL not implemented yet");
+            }
+            "3" => {
+                println!("Language REPL not implemented yet");
+            }
+            _ => {
+                println!("Invalid REPL");
+            }
+        }
     }
-    //remove args[0]
-    let filename = &args[1];
-    if !filename.ends_with("tzo") {
-        //open file
-        let mut f = std::fs::File::open(filename).unwrap();
-        //read file
-        let mut contents = String::new();
-        f.read_to_string(&mut contents).unwrap();
-        //split file into lines
-        let lines: Vec<&str> = contents.split("\n").collect();
-        let mut assem = assembler::Assembler::new();
-        assem.assemble(lines);
-        assem.write();
-    }
-    let mut vm = VM::new();
-    vm.load("cache/out.tzo");
-    vm.run();
 }
