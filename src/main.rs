@@ -26,7 +26,7 @@ fn main() {
                 repl.run();
             }
             "2" => {
-                let mut repl = asm_repl::ASM_REPL::new();
+                let mut repl = asm_repl::AsmRepl::new();
                 repl.run();
             }
             "3" => {

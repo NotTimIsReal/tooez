@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Opcode {
     HLT,
     ADD,
@@ -19,7 +19,7 @@ pub enum Opcode {
     PRINT,
     IGL,
 }
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Instruction {
     opcode: Opcode,
 }

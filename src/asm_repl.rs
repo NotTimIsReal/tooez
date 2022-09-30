@@ -1,22 +1,21 @@
 use crate::lexer::assembler::get_token;
 use crate::lexer::Token;
 use crate::vm::VM;
-use std;
 use std::io;
 use std::io::Write;
-use std::num::ParseIntError;
-pub struct ASM_REPL {
+
+pub struct AsmRepl {
     vm: VM,
     command_buffer: Vec<String>,
 }
-impl Default for ASM_REPL {
+impl Default for AsmRepl {
     fn default() -> Self {
         Self::new()
     }
 }
-impl ASM_REPL {
-    pub fn new() -> ASM_REPL {
-        ASM_REPL {
+impl AsmRepl {
+    pub fn new() -> AsmRepl {
+        AsmRepl {
             vm: VM::new(),
             command_buffer: Vec::new(),
         }
