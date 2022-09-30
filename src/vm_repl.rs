@@ -83,7 +83,7 @@ impl REPL {
                     println!("End of Register Listing")
                 }
                 ".clear" => {
-                    self.vm.registers = [0; 32];
+                    self.vm.registers = [0; 64];
                     self.vm.program = vec![];
                     self.vm.pc = 0;
                 }

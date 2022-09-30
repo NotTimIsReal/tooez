@@ -1,11 +1,11 @@
+mod asm_repl;
 pub mod instructions;
-pub mod repl;
+pub mod lexer;
 pub mod vm;
-use repl::REPL;
+pub mod vm_repl;
 use std::env;
 use std::io;
-#[macro_use]
-extern crate nom;
+use vm_repl::REPL;
 fn main() {
     //analysze args
 
@@ -26,7 +26,8 @@ fn main() {
                 repl.run();
             }
             "2" => {
-                println!("Assembler REPL not implemented yet");
+                let mut repl = asm_repl::ASM_REPL::new();
+                repl.run();
             }
             "3" => {
                 println!("Language REPL not implemented yet");

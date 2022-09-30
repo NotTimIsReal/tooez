@@ -16,6 +16,7 @@ pub enum Opcode {
     GTE,
     LTE,
     JEE,
+    PRINT,
     IGL,
 }
 #[derive(Debug, PartialEq)]
@@ -46,6 +47,7 @@ impl From<u8> for Opcode {
             13 => Opcode::GTE,
             14 => Opcode::LTE,
             15 => Opcode::JEE,
+            16 => Opcode::PRINT,
             _ => Opcode::IGL,
         }
     }

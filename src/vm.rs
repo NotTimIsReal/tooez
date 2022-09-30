@@ -1,6 +1,6 @@
 use crate::instructions::Opcode;
 pub struct VM {
-    pub registers: [i32; 32],
+    pub registers: [i32; 64],
     pub pc: usize,
     pub program: Vec<u8>,
     pub remainder: u32,
@@ -14,7 +14,7 @@ impl Default for VM {
 impl VM {
     pub fn new() -> VM {
         VM {
-            registers: [0; 32],
+            registers: [0; 64],
             pc: 0,
             program: vec![],
             remainder: 0,
@@ -145,6 +145,11 @@ impl VM {
                 if register1 == register2 {
                     self.pc = self.registers[dest] as usize;
                 }
+            }
+            Opcode::PRINT => {
+                let register = self.registers[self.next_8_bits() as usize];
+                println!("{}", register);
+                self.next_16_bits();
             }
             _ => {
                 println!("Unrecognized opcode found! Terminating!");
